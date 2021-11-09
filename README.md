@@ -244,7 +244,14 @@ ocr_system，右击->重新生成，显示“全部重新生成已成功”。�
 更改det_model_dir，cls_model_dir，rec_model_dir，这三个路径见1.7。char_list_file为字典路径，visualize为结果是否可视化，如下
 
 ```
-det_model_dir  E:\PaddleOCR-release-2.1\download\ch_ppocr_mobile_v2.0_det_infercls_model_dir  E:\PaddleOCR-release-2.1\download\ch_ppocr_mobile_v2.0_cls_inferrec_model_dir  E:\PaddleOCR-release-2.1\download\ch_ppocr_mobile_v2.0_rec_inferchar_list_file  E:\PaddleOCR-release-2.1\ppocr\utils\ppocr_keys_v1.txtvisualize 1
+det_model_dir  E:\PaddleOCR-release-2.1\download\ch_ppocr_mobile_v2.0_det_infer
+
+cls_model_dir  E:\PaddleOCR-release-2.1\download\ch_ppocr_mobile_v2.0_cls_infer
+
+rec_model_dir  E:\PaddleOCR-release-2.1\download\ch_ppocr_mobile_v2.0_rec_infer
+char_list_file  E:\PaddleOCR-release-2.1\ppocr\utils\ppocr_keys_v1.txt
+
+visualize 1
 ```
 
 ### 4.4 paddle_inference.dll
@@ -294,7 +301,157 @@ ocr_system.exe E:\PaddleOCR-release-2.1\deploy\cpp_infer\tools\config.txt E:\Pad
 ![image-20211109093202006](imgs/image-20211109093202006.png)
 
 ```
-#include "glog/logging.h"#include "omp.h"#include "opencv2/core.hpp"#include "opencv2/imgcodecs.hpp"#include "opencv2/imgproc.hpp"#include <chrono>#include <iomanip>#include <iostream>#include <ostream>#include <vector>#include <cstring>#include <fstream>#include <numeric>#include <include/config.h>#include <include/ocr_det.h>#include <include/ocr_rec.h>//#include"ocr.h"using namespace std;using namespace cv;using namespace PaddleOCR;/*1.返回框选字体；2.返回解析字符串*/extern "C" __declspec(dllexport) void LoadModel(char* img_path,char* OcrConfig_path, char* rec_result, int& rec_result_len, int* sss, int& sss_len);__declspec(dllexport) void LoadModel(char* img_path, char* OcrConfig_path, char*     rec_result, int& rec_result_len, int* sss, int& sss_len){    std::string str_ret;auto start0 = std::chrono::system_clock::now();//OCRConfig config("D:\\Paddle\\PaddleOCR-release-2.1\\deploy\\cpp_infer\\tools\\config.txt");OCRConfig config(OcrConfig_path);config.PrintConfigInfo();auto end0 = std::chrono::system_clock::now();auto duration0 =    std::chrono::duration_cast<std::chrono::microseconds>(end0 - start0);str_ret += "OCRConfig_Cost:";str_ret += std::to_string(double(duration0.count()) *    std::chrono::microseconds::period::num /    std::chrono::microseconds::period::den);str_ret += "s\r\n";auto start1 = std::chrono::system_clock::now();cv::Mat srcimg = cv::imread(img_path, cv::IMREAD_COLOR);//cv::Mat srcimg(height, width, CV_8UC3, input);auto end1 = std::chrono::system_clock::now();auto duration1 =    std::chrono::duration_cast<std::chrono::microseconds>(end1 - start1);str_ret += "cv::imread_Cost:";str_ret += std::to_string(double(duration1.count()) *    std::chrono::microseconds::period::num /    std::chrono::microseconds::period::den);str_ret += "s\r\n";auto start2 = std::chrono::system_clock::now();DBDetector det(config.det_model_dir, config.use_gpu, config.gpu_id,    config.gpu_mem, config.cpu_math_library_num_threads,    config.use_mkldnn, config.max_side_len, config.det_db_thresh,    config.det_db_box_thresh, config.det_db_unclip_ratio,    config.use_polygon_score, config.visualize,    config.use_tensorrt, config.use_fp16);auto end2 = std::chrono::system_clock::now();auto duration2 =    std::chrono::duration_cast<std::chrono::microseconds>(end2 - start2);str_ret += "DBDetector_Cost:";str_ret += std::to_string(double(duration2.count()) *    std::chrono::microseconds::period::num /    std::chrono::microseconds::period::den);str_ret += "s\r\n";auto start3 = std::chrono::system_clock::now();Classifier* cls = nullptr;if (config.use_angle_cls == true) {    cls = new Classifier(config.cls_model_dir, config.use_gpu, config.gpu_id,        config.gpu_mem, config.cpu_math_library_num_threads,        config.use_mkldnn, config.cls_thresh,        config.use_tensorrt, config.use_fp16);}auto end3 = std::chrono::system_clock::now();auto duration3 =    std::chrono::duration_cast<std::chrono::microseconds>(end3 - start3);str_ret += "Classifier_Cost:";str_ret += std::to_string(double(duration3.count()) *    std::chrono::microseconds::period::num /    std::chrono::microseconds::period::den);str_ret += "s\r\n";auto start4 = std::chrono::system_clock::now();CRNNRecognizer rec(config.rec_model_dir, config.use_gpu, config.gpu_id,    config.gpu_mem, config.cpu_math_library_num_threads,    config.use_mkldnn, config.char_list_file,    config.use_tensorrt, config.use_fp16);auto end4 = std::chrono::system_clock::now();auto duration4 =    std::chrono::duration_cast<std::chrono::microseconds>(end4 - start4);str_ret += "CRNNRecognizer_Cost:";str_ret += std::to_string(double(duration4.count()) *    std::chrono::microseconds::period::num /    std::chrono::microseconds::period::den);str_ret += "s\r\n";auto start5 = std::chrono::system_clock::now();// 检测std::vector<std::vector<std::vector<int>>> boxes;det.Run(srcimg, boxes);//获取det框的角点坐标size_t index = 0;for (size_t i = 0; i < boxes.size(); i++){    std::vector<std::vector<int>>& boxI = boxes[i];    for (size_t j = 0; j < 4; j++)    {        sss[index++] = boxI[j][0];        sss[index++] = boxI[j][1];    }}sss_len = index;auto end5 = std::chrono::system_clock::now();auto duration5 =    std::chrono::duration_cast<std::chrono::microseconds>(end5 - start5);str_ret += "det_Cost:";str_ret += std::to_string(double(duration5.count()) *    std::chrono::microseconds::period::num /    std::chrono::microseconds::period::den);str_ret += "s\r\n";auto start = std::chrono::system_clock::now();// 识别  rec.Run(boxes, srcimg, cls, str_ret);//总耗时auto end = std::chrono::system_clock::now();auto duration =    std::chrono::duration_cast<std::chrono::microseconds>(end - start);std::cout << "Cost  "    << double(duration.count()) *    std::chrono::microseconds::period::num /    std::chrono::microseconds::period::den    << "s" << std::endl;str_ret += "rec_cost:";str_ret += std::to_string(double(duration.count()) *    std::chrono::microseconds::period::num /    std::chrono::microseconds::period::den);str_ret += "s";strcpy(rec_result, str_ret.c_str());rec_result_len = str_ret.size();}
+#include "glog/logging.h"
+#include "omp.h"
+#include "opencv2/core.hpp"
+#include "opencv2/imgcodecs.hpp"
+#include "opencv2/imgproc.hpp"
+#include <chrono>
+#include <iomanip>
+#include <iostream>
+#include <ostream>
+#include <vector>
+
+#include <cstring>
+#include <fstream>
+#include <numeric>
+
+#include <include/config.h>
+#include <include/ocr_det.h>
+#include <include/ocr_rec.h>
+//#include"ocr.h"
+using namespace std;
+using namespace cv;
+using namespace PaddleOCR;
+
+/*
+1.返回框选字体；
+2.返回解析字符串
+*/
+
+extern "C" __declspec(dllexport) void LoadModel(char* img_path,char* OcrConfig_path, char* rec_result, int& rec_result_len, int* sss, int& sss_len);
+
+__declspec(dllexport) void LoadModel(char* img_path, char* OcrConfig_path, char*     rec_result, int& rec_result_len, int* sss, int& sss_len)
+{
+    std::string str_ret;
+auto start0 = std::chrono::system_clock::now();
+//OCRConfig config("D:\\Paddle\\PaddleOCR-release-2.1\\deploy\\cpp_infer\\tools\\config.txt");
+OCRConfig config(OcrConfig_path);
+config.PrintConfigInfo();
+auto end0 = std::chrono::system_clock::now();
+auto duration0 =
+    std::chrono::duration_cast<std::chrono::microseconds>(end0 - start0);
+str_ret += "OCRConfig_Cost:";
+str_ret += std::to_string(double(duration0.count()) *
+    std::chrono::microseconds::period::num /
+    std::chrono::microseconds::period::den);
+str_ret += "s\r\n";
+
+auto start1 = std::chrono::system_clock::now();
+cv::Mat srcimg = cv::imread(img_path, cv::IMREAD_COLOR);
+//cv::Mat srcimg(height, width, CV_8UC3, input);
+auto end1 = std::chrono::system_clock::now();
+auto duration1 =
+    std::chrono::duration_cast<std::chrono::microseconds>(end1 - start1);
+str_ret += "cv::imread_Cost:";
+str_ret += std::to_string(double(duration1.count()) *
+    std::chrono::microseconds::period::num /
+    std::chrono::microseconds::period::den);
+str_ret += "s\r\n";
+
+auto start2 = std::chrono::system_clock::now();
+DBDetector det(config.det_model_dir, config.use_gpu, config.gpu_id,
+    config.gpu_mem, config.cpu_math_library_num_threads,
+    config.use_mkldnn, config.max_side_len, config.det_db_thresh,
+    config.det_db_box_thresh, config.det_db_unclip_ratio,
+    config.use_polygon_score, config.visualize,
+    config.use_tensorrt, config.use_fp16);
+auto end2 = std::chrono::system_clock::now();
+auto duration2 =
+    std::chrono::duration_cast<std::chrono::microseconds>(end2 - start2);
+str_ret += "DBDetector_Cost:";
+str_ret += std::to_string(double(duration2.count()) *
+    std::chrono::microseconds::period::num /
+    std::chrono::microseconds::period::den);
+str_ret += "s\r\n";
+
+auto start3 = std::chrono::system_clock::now();
+Classifier* cls = nullptr;
+if (config.use_angle_cls == true) {
+    cls = new Classifier(config.cls_model_dir, config.use_gpu, config.gpu_id,
+        config.gpu_mem, config.cpu_math_library_num_threads,
+        config.use_mkldnn, config.cls_thresh,
+        config.use_tensorrt, config.use_fp16);
+}
+auto end3 = std::chrono::system_clock::now();
+auto duration3 =
+    std::chrono::duration_cast<std::chrono::microseconds>(end3 - start3);
+str_ret += "Classifier_Cost:";
+str_ret += std::to_string(double(duration3.count()) *
+    std::chrono::microseconds::period::num /
+    std::chrono::microseconds::period::den);
+str_ret += "s\r\n";
+
+auto start4 = std::chrono::system_clock::now();
+CRNNRecognizer rec(config.rec_model_dir, config.use_gpu, config.gpu_id,
+    config.gpu_mem, config.cpu_math_library_num_threads,
+    config.use_mkldnn, config.char_list_file,
+    config.use_tensorrt, config.use_fp16);
+auto end4 = std::chrono::system_clock::now();
+auto duration4 =
+    std::chrono::duration_cast<std::chrono::microseconds>(end4 - start4);
+str_ret += "CRNNRecognizer_Cost:";
+str_ret += std::to_string(double(duration4.count()) *
+    std::chrono::microseconds::period::num /
+    std::chrono::microseconds::period::den);
+str_ret += "s\r\n";
+
+auto start5 = std::chrono::system_clock::now();
+// 检测
+std::vector<std::vector<std::vector<int>>> boxes;
+det.Run(srcimg, boxes);
+//获取det框的角点坐标
+size_t index = 0;
+for (size_t i = 0; i < boxes.size(); i++)
+{
+    std::vector<std::vector<int>>& boxI = boxes[i];
+    for (size_t j = 0; j < 4; j++)
+    {
+        sss[index++] = boxI[j][0];
+        sss[index++] = boxI[j][1];
+    }
+}
+sss_len = index;
+auto end5 = std::chrono::system_clock::now();
+auto duration5 =
+    std::chrono::duration_cast<std::chrono::microseconds>(end5 - start5);
+str_ret += "det_Cost:";
+str_ret += std::to_string(double(duration5.count()) *
+    std::chrono::microseconds::period::num /
+    std::chrono::microseconds::period::den);
+str_ret += "s\r\n";
+
+auto start = std::chrono::system_clock::now();
+// 识别  
+rec.Run(boxes, srcimg, cls, str_ret);
+
+//总耗时
+auto end = std::chrono::system_clock::now();
+auto duration =
+    std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+std::cout << "Cost  "
+    << double(duration.count()) *
+    std::chrono::microseconds::period::num /
+    std::chrono::microseconds::period::den
+    << "s" << std::endl;
+str_ret += "rec_cost:";
+str_ret += std::to_string(double(duration.count()) *
+    std::chrono::microseconds::period::num /
+    std::chrono::microseconds::period::den);
+str_ret += "s";
+strcpy(rec_result, str_ret.c_str());
+rec_result_len = str_ret.size();
+}
 ```
 
 ### 5.2 更改ocr_rec.cpp
@@ -302,13 +459,15 @@ ocr_system.exe E:\PaddleOCR-release-2.1\deploy\cpp_infer\tools\config.txt E:\Pad
 原代码：
 
 ```
-void CRNNRecognizer::Run(std::vector<std::vector<std::vector<int>>> boxes,                         cv::Mat &img, Classifier *cls) {
+void CRNNRecognizer::Run(std::vector<std::vector<std::vector<int>>> boxes,
+                         cv::Mat &img, Classifier *cls) {
 ```
 
 更改成：
 
 ```
-void CRNNRecognizer::Run(std::vector<std::vector<std::vector<int>>> boxes,                         cv::Mat &img, Classifier *cls, std::string& result) {
+void CRNNRecognizer::Run(std::vector<std::vector<std::vector<int>>> boxes,
+                         cv::Mat &img, Classifier *cls, std::string& result) {
 ```
 
 ### 5.3 更改ocr_rec.h
@@ -316,13 +475,15 @@ void CRNNRecognizer::Run(std::vector<std::vector<std::vector<int>>> boxes,      
 原代码：
 
 ```
-void Run(std::vector<std::vector<std::vector<int>>> boxes, cv::Mat &img,           Classifier *cls);
+void Run(std::vector<std::vector<std::vector<int>>> boxes, cv::Mat &img,
+           Classifier *cls);
 ```
 
 更改成：
 
 ```
-void Run(std::vector<std::vector<std::vector<int>>> boxes, cv::Mat &img,           Classifier *cls, std::string& result);
+void Run(std::vector<std::vector<std::vector<int>>> boxes, cv::Mat &img,
+           Classifier *cls, std::string& result);
 ```
 
 ### 5.4 更改ocr_rec.cpp
@@ -330,13 +491,23 @@ void Run(std::vector<std::vector<std::vector<int>>> boxes, cv::Mat &img,        
 原代码：
 
 ```
-for (int i = 0; i < str_res.size(); i++) {    std::cout << str_res[i];}std::cout << "\tscore: " << score << std::endl;
+for (int i = 0; i < str_res.size(); i++) {
+    std::cout << str_res[i];
+}
+std::cout << "\tscore: " << score << std::endl;
 ```
 
 更改成：
 
 ```
-for (int i = 0; i < str_res.size(); i++) {    std::cout << str_res[i];    result += str_res[i];}std::cout << "\tscore: " << score << std::endl;result += "\tscore: ";result += std::to_string(score);result += "\r\n";
+for (int i = 0; i < str_res.size(); i++) {
+    std::cout << str_res[i];
+    result += str_res[i];
+}
+std::cout << "\tscore: " << score << std::endl;
+result += "\tscore: ";
+result += std::to_string(score);
+result += "\r\n";
 ```
 
 ### 5.5 更改ocr_system属性
@@ -384,7 +555,8 @@ ocr_system，右击->重新生成，显示“全部重新生成已成功”。�
 C++生成的dll，属于非托管的dll，无法通过添加引用，添加引用会报错，如下图。只能通过DllImport方式导入，[参考文档](https://greambwang.blog.csdn.net/article/details/96422456?utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-2.no_search_link&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-2.no_search_link)。
 
 ```bash
-[DllImport("ocr_system.dll", EntryPoint = "LoadModel", SetLastError = true, CharSet = CharSet.Ansi)]        static extern void LoadModel(byte[] img_path, byte[] OcrConfig_path, byte[] rec_result, ref int len, int[] boxs, ref int boxs_len);
+[DllImport("ocr_system.dll", EntryPoint = "LoadModel", SetLastError = true, CharSet = CharSet.Ansi)]
+        static extern void LoadModel(byte[] img_path, byte[] OcrConfig_path, byte[] rec_result, ref int len, int[] boxs, ref int boxs_len);
 ```
 
 ![image-20211014222737015](imgs/image-20211014222737015.png)
@@ -392,7 +564,43 @@ C++生成的dll，属于非托管的dll，无法通过添加引用，添加引�
 ### 6.5 Button
 
 ```bash
-//图像路径byte[] img_path = System.Text.Encoding.Default.GetBytes("E:\\PaddleOCR-release-2.1\\doc\\imgs\\1.jpg");//config.txt路径byte[] OcrConfig_path = System.Text.Encoding.Default.GetBytes("E:\\PaddleOCR-release-2.1\\deploy\\cpp_infer\\tools\\config.txt");byte[] rec_result = new byte[9999];int[] boxs = new int[999];textBox1.Text = "";Array.Clear(rec_result, 0, rec_result.Length);Array.Clear(boxs, 0, boxs.Length);int boxs_len = -1;int rec_result_len = -1;//运行paddleocrLoadModel(img_path, OcrConfig_path, rec_result, ref rec_result_len, boxs, ref boxs_len);  //rec结果显示textBox1.Text = Encoding.UTF8.GetString(rec_result);//det结果显示pictureBox1.Image = Image.FromFile("E:\\PaddleOCR-release-2.1\\doc\\imgs\\1.jpg");//图像路径Bitmap Img = new Bitmap(pictureBox1.Image);Graphics g = Graphics.FromImage(Img);Pen greenPen = new Pen(Color.Aqua, 8);if (boxs_len > 0){	for (int i = 0; i < Math.Floor((double)boxs_len / 8.0); i++)		{			Point point1 = new Point(boxs[i * 8], boxs[i * 8 + 1]);            Point point2 = new Point(boxs[i * 8 + 2], boxs[i * 8 + 3]);            Point point3 = new Point(boxs[i * 8 + 4], boxs[i * 8 + 5]);            Point point4 = new Point(boxs[i * 8 + 6], boxs[i * 8 + 7]);            Point[] curvePoints = { point1, point2, point3, point4 };            g.DrawPolygon(greenPen, curvePoints);            pictureBox1.Image = Img;         }}
+//图像路径
+byte[] img_path = System.Text.Encoding.Default.GetBytes("E:\\PaddleOCR-release-2.1\\doc\\imgs\\1.jpg");
+//config.txt路径
+byte[] OcrConfig_path = System.Text.Encoding.Default.GetBytes("E:\\PaddleOCR-release-2.1\\deploy\\cpp_infer\\tools\\config.txt");
+byte[] rec_result = new byte[9999];
+int[] boxs = new int[999];
+
+textBox1.Text = "";
+Array.Clear(rec_result, 0, rec_result.Length);
+Array.Clear(boxs, 0, boxs.Length);
+int boxs_len = -1;
+int rec_result_len = -1;
+
+//运行paddleocr
+LoadModel(img_path, OcrConfig_path, rec_result, ref rec_result_len, boxs, ref boxs_len);  
+
+//rec结果显示
+textBox1.Text = Encoding.UTF8.GetString(rec_result);
+
+//det结果显示
+pictureBox1.Image = Image.FromFile("E:\\PaddleOCR-release-2.1\\doc\\imgs\\1.jpg");//图像路径
+Bitmap Img = new Bitmap(pictureBox1.Image);
+Graphics g = Graphics.FromImage(Img);
+Pen greenPen = new Pen(Color.Aqua, 8);
+if (boxs_len > 0)
+{
+	for (int i = 0; i < Math.Floor((double)boxs_len / 8.0); i++)
+		{
+			Point point1 = new Point(boxs[i * 8], boxs[i * 8 + 1]);
+            Point point2 = new Point(boxs[i * 8 + 2], boxs[i * 8 + 3]);
+            Point point3 = new Point(boxs[i * 8 + 4], boxs[i * 8 + 5]);
+            Point point4 = new Point(boxs[i * 8 + 6], boxs[i * 8 + 7]);
+            Point[] curvePoints = { point1, point2, point3, point4 };
+            g.DrawPolygon(greenPen, curvePoints);
+            pictureBox1.Image = Img;
+         }
+}
 ```
 
 ### 6.6 运行
